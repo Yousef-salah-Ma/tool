@@ -4,6 +4,10 @@ from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 import langid
+from langdetect import detect
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 def find_sensitive_info(text, url):
     """
@@ -34,27 +38,29 @@ def find_sensitive_info(text, url):
             found[name] = matches
 
     if found:
-        print(f"\nSensitive information found in {url}:")
+        logging.info(f"\nSensitive information found in {url}:")
         for key, values in found.items():
             for value in values:
-                print(f"  - {key}: {value}")
+                logging.info(f"  - {key}: {value}")
     else:
-        print(f"\nNo sensitive information found in {url}.")
+        logging.info(f"\nNo sensitive information found in {url}.")
 
 def detect_language(text):
     """
-    Function to detect the language of the given text using langid.
+    Function to detect the language of the given text using langid and langdetect.
     """
-    lang, _ = langid.classify(text)
-    print(f"Detected language: {lang}")
-    return lang
+    langid_lang, _ = langid.classify(text)
+    langdetect_lang = detect(text)
+    logging.info(f"Detected language by langid: {langid_lang}")
+    logging.info(f"Detected language by langdetect: {langdetect_lang}")
+    return langid_lang, langdetect_lang
 
 def analyze_with_ml(text):
     """
     Function to analyze text for sensitive information using a simple machine learning model.
     It uses CountVectorizer and Naive Bayes to classify text as containing sensitive information or not.
     """
- 
+    # Training data
     train_data = [
         ("API key: abc123", 1),
         ("password = mysecret", 1),
@@ -76,9 +82,9 @@ def analyze_with_ml(text):
     prediction = model.predict(X_test)[0]
     
     if prediction == 1:
-        print("Machine Learning Model detected sensitive information.")
+        logging.info("Machine Learning Model detected sensitive information.")
     else:
-        print("Machine Learning Model did not detect sensitive information.")
+        logging.info("Machine Learning Model did not detect sensitive information.")
 
 def analyze_url(url):
     """
@@ -86,7 +92,7 @@ def analyze_url(url):
     It handles different content types (HTML, JSON, Plain Text).
     """
     try:
-        print(f"Fetching content from: {url}")
+        logging.info(f"Fetching content from: {url}")
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         
@@ -100,21 +106,21 @@ def analyze_url(url):
             text = response.text
             code = text
         else:
-            print(f"Unsupported content type at {url}: {content_type}")
+            logging.info(f"Unsupported content type at {url}: {content_type}")
             return
 
-        print(f"Analyzing text content from {url}...")
+        logging.info(f"Analyzing text content from {url}...")
         find_sensitive_info(text, url)
 
         analyze_with_ml(text)
 
         detect_language(text)
 
-        print(f"Analyzing code content from {url}...")
+        logging.info(f"Analyzing code content from {url}...")
         find_sensitive_info(code, url)
 
     except Exception as e:
-        print(f"Error fetching {url}: {e}")
+        logging.error(f"Error fetching {url}: {e}")
 
 def analyze_links(file_path):
     """
@@ -129,7 +135,7 @@ def analyze_links(file_path):
                 if url:
                     analyze_url(url)
     except Exception as e:
-        print(f"Error reading file {file_path}: {e}")
+        logging.error(f"Error reading file {file_path}: {e}")
 
 file_path = 'file_path'
 
