@@ -6,14 +6,24 @@ from sklearn.naive_bayes import MultinomialNB
 import langid
 from langdetect import detect
 import logging
+import csv
 
 logging.basicConfig(level=logging.INFO)
 
+def write_to_csv(data, filename='sensitive_info.csv'):
+
+    try:
+        with open(filename, mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+           
+            if file.tell() == 0:
+                writer.writerow(["URL", "Sensitive Information"])
+            writer.writerows(data)
+    except Exception as e:
+        logging.error(f"Error writing to CSV: {e}")
+
 def find_sensitive_info(text, url):
-    """
-    Function to search for sensitive information in the given text.
-    It uses predefined regex patterns to find sensitive data like API keys, tokens, passwords, etc.
-    """
+   
     patterns = {
         'API Keys': r'(api_key|apikey|api-key)\s*[:=]\s*["\']([a-zA-Z0-9_-]+)["\']',
         'Access Tokens': r'(access_token|accesstoken)\s*[:=]\s*["\']([a-zA-Z0-9_-]+)["\']',
@@ -30,25 +40,24 @@ def find_sensitive_info(text, url):
         'URLs with Credentials': r'https?:\/\/[a-zA-Z0-9._%+-]+:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
     }
     
-    found = {}
+    found = []
     
     for name, pattern in patterns.items():
         matches = re.findall(pattern, text)
         if matches:
-            found[name] = matches
+            for match in matches:
+                found.append([url, f"{name}: {match[0]}" if isinstance(match, tuple) else f"{name}: {match}"])
 
     if found:
         logging.info(f"\nSensitive information found in {url}:")
-        for key, values in found.items():
-            for value in values:
-                logging.info(f"  - {key}: {value}")
+        for item in found:
+            logging.info(f"  - {item[1]}")
+        write_to_csv(found)
     else:
         logging.info(f"\nNo sensitive information found in {url}.")
 
 def detect_language(text):
-    """
-    Function to detect the language of the given text using langid and langdetect.
-    """
+
     langid_lang, _ = langid.classify(text)
     langdetect_lang = detect(text)
     logging.info(f"Detected language by langid: {langid_lang}")
@@ -56,11 +65,7 @@ def detect_language(text):
     return langid_lang, langdetect_lang
 
 def analyze_with_ml(text):
-    """
-    Function to analyze text for sensitive information using a simple machine learning model.
-    It uses CountVectorizer and Naive Bayes to classify text as containing sensitive information or not.
-    """
-    # Training data
+ 
     train_data = [
         ("API key: abc123", 1),
         ("password = mysecret", 1),
@@ -123,10 +128,7 @@ def analyze_url(url):
         logging.error(f"Error fetching {url}: {e}")
 
 def analyze_links(file_path):
-    """
-    Function to read URLs from a file and analyze them.
-    Each URL will be passed to the analyze_url function for analysis.
-    """
+ 
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             urls = file.readlines()
@@ -137,6 +139,7 @@ def analyze_links(file_path):
     except Exception as e:
         logging.error(f"Error reading file {file_path}: {e}")
 
+# Example file path where URLs are stored
 file_path = 'file_path'
 
 analyze_links(file_path)
